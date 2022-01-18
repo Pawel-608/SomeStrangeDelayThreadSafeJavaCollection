@@ -13,24 +13,21 @@ import java.util.concurrent.TimeUnit;
  */
 public class DelayBlockingCollection<E> {
     private final DelayQueue<Wrapper<E>> itemsWrapped = new DelayQueue<>();
-    private final long defaultTimeout;
 
     /**
      * @param c - collection with elements that you want to add
      */
-    public DelayBlockingCollection(Collection<? extends E> c, long defaultTimeoutInMs) {
-        this(defaultTimeoutInMs);
+    public DelayBlockingCollection(Collection<? extends E> c) {
         this.addAll(c);
     }
 
-    public DelayBlockingCollection(long defaultTimeoutInMs) {
-        this.defaultTimeout = defaultTimeoutInMs;
-    }
+    public DelayBlockingCollection() {}
 
     /**
      * Equivalent to get(0)
      *
      * @return element that expired the longest time ago or element that will expire first
+     * @throws InterruptedException - if interrupted while waiting
      */
     public synchronized E get() throws InterruptedException {
         return get(0);
@@ -42,13 +39,36 @@ public class DelayBlockingCollection<E> {
      *
      * @param delayInMs minimum time to return same element next time
      * @return element that expired the longest time ago or element that will expire first
+     * @throws InterruptedException - if interrupted while waiting
      */
     public synchronized E get(long delayInMs) throws InterruptedException {
         Wrapper<E> wrappedItem = itemsWrapped.take();
         wrappedItem.setDelay(delayInMs);
         itemsWrapped.add(wrappedItem);
 
-        return wrappedItem.getItem();
+        return wrappedItem.getElement();
+    }
+
+    /**
+     * Works like peek - returns element from the head of queue - but also moves this element backward, by changing
+     * its expiration date
+     *
+     * @param delayInMs minimum time to return same element next time
+     * @param timeoutInMs maximum time to wait for element become available
+     * @return element that expired the longest time ago or element that will expire first or null if no elements had expired in given timeout
+     * @throws InterruptedException - if interrupted while waiting
+     */
+    public synchronized E get(long delayInMs, long timeoutInMs) throws InterruptedException {
+        Wrapper<E> wrappedItem = itemsWrapped.poll(timeoutInMs, TimeUnit.MILLISECONDS);
+
+        if (wrappedItem == null){
+            return null;
+        }
+
+        wrappedItem.setDelay(delayInMs);
+        itemsWrapped.add(wrappedItem);
+
+        return wrappedItem.getElement();
     }
 
     /**
@@ -87,26 +107,30 @@ public class DelayBlockingCollection<E> {
      */
     public synchronized boolean remove(E e) {
         Wrapper<E> clientToRemove = itemsWrapped.stream()
-                .filter(wrapper -> wrapper.item == e)
+                .filter(wrapper -> wrapper.e == e)
                 .findFirst()
                 .orElse(null);
 
         return itemsWrapped.remove(clientToRemove);
     }
 
+    public synchronized boolean isEmpty(){
+        return itemsWrapped.isEmpty();
+    }
+
 
     static private class Wrapper<E> implements Delayed {
-        private final E item;
+        private final E e;
         private long delayTime;
 
         Wrapper(E e, long delayTimeInMs) {
-            this.item = e;
+            this.e = e;
 
             this.delayTime = System.currentTimeMillis() + delayTimeInMs;
         }
 
-        public E getItem() {
-            return item;
+        public E getElement() {
+            return e;
         }
 
         public void setDelay(long delayInMs) {
@@ -120,7 +144,7 @@ public class DelayBlockingCollection<E> {
         }
 
         @Override
-        public int compareTo(Delayed o) {//TODO make sure this implementation is correct!
+        public int compareTo(Delayed o) {
             return Long.compare(this.getDelay(TimeUnit.MILLISECONDS), o.getDelay(TimeUnit.MILLISECONDS));
         }
     }

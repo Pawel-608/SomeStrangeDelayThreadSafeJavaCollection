@@ -10,12 +10,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class DelayBlockingCollectionTest {
     private static final int SOME_DELAY_TIME = 1000;
-    private static final int DEFAULT_TIMEOUT = 100000;
     DelayBlockingCollection<Object> collection;
 
     @BeforeEach
     void init() {
-        collection = new DelayBlockingCollection<>(DEFAULT_TIMEOUT);
+        collection = new DelayBlockingCollection<>();
     }
 
     @Test
@@ -41,7 +40,7 @@ class DelayBlockingCollectionTest {
     void shouldAddElementsInConstructor() throws InterruptedException {
         List<Object> itemsExpected = Arrays.asList(new Object(), new Object(), new Object());
 
-        collection = new DelayBlockingCollection<>(itemsExpected, DEFAULT_TIMEOUT);
+        collection = new DelayBlockingCollection<>(itemsExpected);
 
         List<Object> itemsActual = Arrays.asList(collection.get(SOME_DELAY_TIME), collection.get(SOME_DELAY_TIME), collection.get(SOME_DELAY_TIME));
 
@@ -108,6 +107,11 @@ class DelayBlockingCollectionTest {
     }
 
     @Test
+    void shouldReturnNullIfThereIsNoExpiredElements() throws InterruptedException {
+        assertSame(null, collection.get(1, 100));
+    }
+
+    @Test
     void shouldRemoveElement() throws InterruptedException {
         Object item1 = new Object();
         Object item2 = new Object();
@@ -137,141 +141,13 @@ class DelayBlockingCollectionTest {
     }
 
     @Test
-    void shouldReturnFirstExpiredElement() throws InterruptedException {
-        Object item1 = new Object();
-        Object item2 = new Object();
-
-        for (int i = 0; i < 10; i++) {
-            collection = new DelayBlockingCollection<>(DEFAULT_TIMEOUT);
-
-            Runnable r1 = () -> collection.add(item1, 10000);
-            Runnable r2 = () -> {
-                try {
-                    assertSame(item2, collection.get(100000));
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            };
-            Runnable r3 = () -> collection.add(item2, 100);
-
-            Thread t1 = new Thread(r1);
-            Thread t2 = new Thread(r2);
-            Thread t3 = new Thread(r3);
-
-
-            t1.start();
-            t1.join();
-            t3.start();
-            t3.join();
-
-            t2.start();
-            t2.join();
-        }
+    void shouldReturnTrueIfCollectionIsEmpty(){
+        assertTrue(collection.isEmpty());
     }
 
     @Test
-    void shouldReturnFirstExpiredElementWhenNonEmptyAtGetCall() throws InterruptedException {
-
-        Object item1 = new Object();
-        Object item2 = new Object();
-
-        for (int i = 0; i < 10; i++) {
-            collection = new DelayBlockingCollection<>(DEFAULT_TIMEOUT);
-
-            Runnable r1 = () -> collection.add(item1, 10000);
-            Runnable r2 = () -> {
-                try {
-                    assertSame(item2, collection.get(100000));
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            };
-            Runnable r3 = () -> collection.add(item2, 100);
-
-            Thread t1 = new Thread(r1);
-            Thread t2 = new Thread(r2);
-            Thread t3 = new Thread(r3);
-
-
-            t1.start();
-            t1.join();
-
-            t2.start();
-            t3.start();
-
-            t2.join();
-            t3.join();
-        }
-    }
-
-    @Test
-    void shouldReturnFirstExpiredElementWhenCanBeEmptyAtGetCall() throws InterruptedException {
-
-        Object item1 = new Object();
-        Object item2 = new Object();
-
-        for (int i = 0; i < 10; i++) {
-            collection = new DelayBlockingCollection<>(DEFAULT_TIMEOUT);
-
-            Runnable r1 = () -> collection.add(item1, 10000);
-            Runnable r2 = () -> {
-                try {
-                    assertSame(item2, collection.get(100000));
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            };
-            Runnable r3 = () -> collection.add(item2, 100);
-
-            Thread t1 = new Thread(r1);
-            Thread t2 = new Thread(r2);
-            Thread t3 = new Thread(r3);
-
-            t1.start();
-            t2.start();
-            t3.start();
-
-            t1.join();
-            t2.join();
-            t3.join();
-        }
-    }
-
-    /*
-    TODO fix it will wait here forever because take() method is called on empty DelayQueue sometimes, should change get method to
-    TODO get timeout parameter and use pool() instead of take
-    */
-    @Test
-    void shouldNotBlock() throws InterruptedException {
-
-        fail("it will wait here forever because take() method is called on empty DelayQueue sometimes, see TODO comment above this test method");
-
-        Object item1 = new Object();
-
-        for (int i = 0; i < 10; i++) {
-            collection = new DelayBlockingCollection<>(DEFAULT_TIMEOUT);
-
-            Runnable r1 = () -> collection.add(item1, 1000);
-            Runnable r2 = () -> {
-                try {
-                    assertSame(item1, collection.get(1000));
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            };
-            Runnable r3 = () -> collection.remove(item1);
-
-            Thread t1 = new Thread(r1);
-            Thread t2 = new Thread(r2);
-            Thread t3 = new Thread(r3);
-
-            t1.start();
-            t2.start();
-            t3.start();
-
-            t1.join();
-            t2.join();
-            t3.join();
-        }
+    void shouldReturnFalseIfCollectionIsNotEmpty(){
+        collection.add(new Object());
+        assertFalse(collection.isEmpty());
     }
 }
